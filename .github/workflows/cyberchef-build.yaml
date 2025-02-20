@@ -1,10 +1,8 @@
 name: Build CyberChef Container from Source
 
 on:
-  # Run workflow on schedule (every Monday at 02:00 UTC)
   schedule:
     - cron: '0 2 * * 1'
-  # Allow manual triggers
   workflow_dispatch:
 
 env:
@@ -51,6 +49,10 @@ jobs:
           context: cyberchef
           push: true
           tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          labels: |
+            ${{ steps.meta.outputs.labels }}
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.description=CyberChef container build
+            org.opencontainers.image.licenses=MIT
           cache-from: type=gha
           cache-to: type=gha,mode=max
