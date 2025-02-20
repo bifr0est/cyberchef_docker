@@ -15,17 +15,17 @@ This repository contains an automated workflow to build [CyberChef](https://gith
 
 ```bash
 # Latest version
-docker pull ghcr.io/bifr0est/cyberchef-container/cyberchef:latest
+docker pull ghcr.io/bifr0est/cyberchef_container/cyberchef:latest
 
 # Specific date version
-docker pull ghcr.io/bifr0est/cyberchef-container/cyberchef:YYYYMMDD
+docker pull ghcr.io/bifr0est/cyberchef_container/cyberchef:YYYYMMDD
 ```
 
 ### Run the Container
 
 ```bash
 # Run on port 8080
-docker run -p 8080:80 ghcr.io/bifr0est/cyberchef-container/cyberchef:latest
+docker run -p 8080:80 ghcr.io/bifr0est/cyberchef_container/cyberchef:latest
 ```
 
 Access CyberChef at http://localhost:8080
