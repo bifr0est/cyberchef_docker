@@ -3,25 +3,37 @@ name: Build CyberChef Container from Source
 on:
   schedule:
     - cron: '0 2 * * 1'
-  workflow_dispatch:
+  workflow_dispatch: 
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}/cyberchef
+  CYBERCHEF_REPO: gchq/CyberChef
+  CYBERCHEF_PATH: cyberchef_source
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      packages: write
+      contents: read     
+      packages: write    
 
     steps:
-      - name: Clone CyberChef repository
+      - name: Clone CyberChef repository (shallow clone)
         uses: actions/checkout@v4
         with:
-          repository: gchq/CyberChef
-          path: cyberchef
+          repository: ${{ env.CYBERCHEF_REPO }}
+          path: ${{ env.CYBERCHEF_PATH }}
+          fetch-depth: 1 
+
+      - name: Get CyberChef Commit SHA
+        id: cyberchef_git
+        run: |
+          cd ${{ env.CYBERCHEF_PATH }}
+          echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          # Attempt to get the latest tag, fallback gracefully if none exists
+          echo "tag=$(git describe --tags --abbrev=0 2>/dev/null || echo '')" >> $GITHUB_OUTPUT
+        shell: bash
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -39,20 +51,37 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=raw,value=latest
-            type=raw,value={{date 'YYYYMMDD'}}
-            type=sha,format=long
+            type=raw,value=latest # Always tag the latest build as 'latest'
+            type=raw,value={{date 'YYYYMMDD'}} # Tag with build date
+            # Tag with the specific CyberChef commit SHA (short format)
+            type=sha,prefix=git-,suffix=,value=${{ steps.cyberchef_git.outputs.sha }},format=short
+            # Tag with the latest Git tag from CyberChef repo, if available
+            type=raw,value=${{ steps.cyberchef_git.outputs.tag }},enable=${{ steps.cyberchef_git.outputs.tag != '' }}
 
       - name: Build and push Docker image
+        id: build-and-push 
         uses: docker/build-push-action@v5
         with:
-          context: cyberchef
+          context: ${{ env.CYBERCHEF_PATH }} 
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: |
-            ${{ steps.meta.outputs.labels }}
-            org.opencontainers.image.source=https://github.com/${{ github.repository }}
-            org.opencontainers.image.description=CyberChef container build
-            org.opencontainers.image.licenses=MIT
+            ${{ steps.meta.outputs.labels }} # Include default labels like created date, etc.
+            org.opencontainers.image.source=https://github.com/${{ env.CYBERCHEF_REPO }}
+            org.opencontainers.image.description=CyberChef container built from source by GitHub Actions in ${{ github.repository }}
+            org.opencontainers.image.revision=${{ steps.cyberchef_git.outputs.sha }} # <-- Optimization: Add source commit SHA label
+            # You might need to check CyberChef's actual license file if it's not Apache-2.0
+            org.opencontainers.image.licenses=Apache-2.0
           cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-to: type=gha,mode=max 
+
+      - name: Print Image Details
+        run: |
+          echo "Successfully built and pushed image:"
+          echo "Tags: ${{ steps.meta.outputs.tags }}"
+          echo "Labels:"
+          echo "${{ steps.meta.outputs.labels }}"
+          echo "org.opencontainers.image.source=https://github.com/${{ env.CYBERCHEF_REPO }}"
+          echo "org.opencontainers.image.description=CyberChef container built from source by GitHub Actions in ${{ github.repository }}"
+          echo "org.opencontainers.image.revision=${{ steps.cyberchef_git.outputs.sha }}"
+          echo "org.opencontainers.image.licenses=Apache-2.0"
